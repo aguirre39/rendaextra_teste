@@ -86,7 +86,7 @@
                 }
             });
 
-            // Store do Chatbot Lucas
+            // Store do Chatbot Lucas (FLUXO ATUALIZADO COM CAPTURA DE E-MAIL)
             Alpine.store('chatbot', {
                 chatOpen: false,
                 typing: false,
@@ -94,12 +94,12 @@
                 userInput: '',
                 chatContainer: null,
                 userName: '',
-                conversationState: 'initial', // initial, awaiting_name, chatting
-                menuOpen: false, // NOVO: Estado do menu dos três pontinhos
-                searchActive: false, // NOVO: Estado da pesquisa ativa
-                searchQuery: '', // NOVO: Campo de texto de pesquisa
+                userEmail: '', // NOVO
+                conversationState: 'initial', // initial, awaiting_name, awaiting_email, chatting
+                menuOpen: false,
+                searchActive: false,
+                searchQuery: '',
                 
-                // Contexto do Sistema (Prompt)
                 systemContext: `🔥 SYSTEM CONTEXT: LUCAS - O CONSULTOR DE RENDA DIGITAL (VERSÃO 2.0)IDENTITY & TONE:
                 Você é o LUCAS, um especialista em renda extra que JOGA LIMPO. Você odeia "gurus" que prometem dinheiro fácil.
                 Você representa o treinamento "Sua Renda em Casa 2.0" do Thiago Hora.
@@ -166,10 +166,7 @@
                 - Exemplo: "Começando hoje você já escolhe o primeiro serviço e pode buscar cliente até o fim de semana. https://pay.kiwify.com.br/sUqnazH?afid=AmSCf2eb Fechado?"`,
 
                 init() {
-                    // Tenta encontrar o container se ele já existir
-                    setTimeout(() => {
-                        this.chatContainer = document.querySelector('[x-ref="chatContainer"]');
-                    }, 500);
+                    setTimeout(() => { this.chatContainer = document.querySelector('[x-ref="chatContainer"]'); }, 500);
                 },
 
                 startChat() {
@@ -177,8 +174,8 @@
                     if (typeof window.stopNotificationCycles === 'function') window.stopNotificationCycles();
                     
                     this.chatOpen = true;
-                    this.menuOpen = false; // Fecha menu ao abrir chat
-                    this.searchActive = false; // Fecha pesquisa ao abrir chat
+                    this.menuOpen = false;
+                    this.searchActive = false;
                     
                     if (this.conversationState === 'initial') {
                         this.conversationState = 'awaiting_name';
@@ -195,83 +192,74 @@
                     if (typeof window.startNotificationCycles === 'function') window.startNotificationCycles();
                 },
 
-                // NOVO: Função para alternar o campo de pesquisa
                 toggleSearch() {
                     this.searchActive = !this.searchActive;
-                    if (!this.searchActive) {
-                        this.searchQuery = '';
-                    }
-                    this.menuOpen = false; // Fecha menu se abrir pesquisa
-                    Alpine.nextTick(() => {
-                        if (this.searchActive) {
-                            document.querySelector('[x-ref="searchInput"]').focus();
-                        }
-                    });
+                    if (!this.searchActive) this.searchQuery = '';
+                    this.menuOpen = false;
+                    Alpine.nextTick(() => { if (this.searchActive) document.querySelector('[x-ref="searchInput"]').focus(); });
                 },
 
-                // NOVO: Função para alternar o menu
-                toggleMenu() {
-                    this.menuOpen = !this.menuOpen;
-                    this.searchActive = false; // Fecha pesquisa se abrir menu
-                },
+                toggleMenu() { this.menuOpen = !this.menuOpen; this.searchActive = false; },
 
-                // NOVO: Função de ação do menu (Ex: Mandar Link de Compra)
                 menuAction(action) {
                     this.menuOpen = false;
-                    this.typing = true;
-                    let message = '';
-                    
-                    if (action === 'send_link') {
-                        message = "Beleza! O link de pagamento oficial com todos os bônus e a garantia total é este: https://pay.kiwify.com.br/sUqnazH?afid=AmSCf2eb. Acesso imediato no Pix! Qualquer dúvida, só chamar.";
-                    } else if (action === 'show_guarantee') {
-                        message = "Vou ser bem direto: temos uma *Garantia Dupla*. Primeiro, 7 dias incondicionais (se não gostar, devolvemos tudo). Segundo, se você aplicar o método por 30 dias, não tiver resultado e cumprir as regras, a gente devolve seu dinheiro *mais R$100 no Pix* pelo seu tempo. O risco é ZERO!";
-                    } else if (action === 'restart_chat') {
-                        // Resetando o estado da conversa e iniciando o fluxo
+                    if (action === 'restart_chat') {
                         this.messages = [];
                         this.conversationState = 'initial';
                         this.startChat();
-                        this.typing = false;
                         return;
                     }
+                    this.typing = true;
+                    let message = '';
+                    if (action === 'send_link') message = "Beleza! O link oficial com bônus e garantia é este: https://pay.kiwify.com.br/sUqnazH?afid=AmSCf2eb";
+                    else if (action === 'show_guarantee') message = "Garantia Dupla: 7 dias incondicionais + 30 dias se aplicar e não tiver resultado (devolvemos tudo + R$100).";
                     
-                    setTimeout(() => {
-                        this._addMessage('lucas', message);
-                        this.typing = false;
-                    }, 500);
+                    setTimeout(() => { this._addMessage('lucas', message); this.typing = false; }, 500);
                 },
-
 
                 quickSend(question) {
                     this.userInput = question;
                     this.sendUserMessage();
                 },
 
-                // CORREÇÃO DE ERRO DE PESQUISA E ROLAGEM
+                // FUNÇÃO DE ENVIO PARA O BACKEND (APPS SCRIPT)
+                async _sendEmailToBackend(email, name) {
+                    if (!APPS_SCRIPT_URL) return;
+                    
+                    const payload = { 
+                        type: "capture_email", 
+                        email: email, 
+                        name: name,
+                        pageUrl: window.location.href, // Captura a URL da página automaticamente
+                        origin: "Chatbot Lucas" 
+                    };
+
+                    try {
+                        // Usamos text/plain para evitar bloqueios de CORS do navegador com o Google
+                        await fetch(APPS_SCRIPT_URL, {
+                            method: "POST",
+                            mode: "no-cors", // Crucial para Google Apps Script
+                            headers: { "Content-Type": "text/plain;charset=utf-8" },
+                            body: JSON.stringify(payload)
+                        });
+                        console.log("Lead processado com sucesso.");
+                    } catch (e) { 
+                        console.error("Erro ao reportar lead:", e); 
+                    }
+                },
+
                 async sendSearchQuery() {
                     const query = this.searchQuery.trim();
                     if (!query || this.typing) return;
-                    
                     this.searchActive = false;
-                    // Adiciona a mensagem do usuário/busca
                     this._addMessage('user', `Pesquisar: "${query}"`);
                     this.searchQuery = '';
                     this.typing = true;
-
-                    // CORREÇÃO DE ERRO DA API: Para a busca, não enviamos o histórico anterior,
-                    // apenas a nova consulta (userMessage) para evitar o erro "First content should be with role 'user'".
-                    const searchPrompt = `O cliente está usando a função de busca e pesquisou: "${query}". Responda de forma concisa (máximo 4 frases) como o Lucas, integrando a informação ao seu pitch de vendas e sempre oferecendo o link de compra quando pertinente.`;
-                    
                     try {
-                        // Chamamos a API enviando APENAS a consulta como userMessage,
-                        // e o histórico vazio para forçar o início de um novo chat de busca.
-                        const response = await window.callGeminiAPI(this.systemContext, [], searchPrompt); 
+                        const response = await window.callGeminiAPI(this.systemContext, [], `O cliente buscou: "${query}". Responda brevemente como Lucas.`); 
                         this._addMessage('lucas', response);
-                    } catch (error) {
-                        console.error("Erro na busca:", error);
-                        this._addMessage('lucas', error.message || "Eita, minha conexão oscilou durante a pesquisa. Tenta de novo?");
-                    } finally {
-                        this.typing = false;
-                    }
+                    } catch (error) { this._addMessage('lucas', "Minha conexão oscilou. Tenta de novo?"); }
+                    finally { this.typing = false; }
                 },
                 
                 async sendUserMessage() {
@@ -282,109 +270,86 @@
                     this.userInput = '';
                     this.typing = true;
 
-                    // Lógica de captura de nome (mantida)
+                    // 1. CAPTURA DE NOME
                     if (this.conversationState === 'awaiting_name') {
                         this.userName = userMessage;
-                        this.conversationState = 'chatting';
-                        
-                        const instructionsWithName = this.systemContext + `\n\nO nome do cliente é: ${this.userName}. Use o nome dele ocasionalmente.`;
-                        this.systemContext = instructionsWithName;
-
+                        this.conversationState = 'awaiting_email';
                         setTimeout(() => {
                             this.typing = false;
                             this._addMessage('lucas', `Prazer, **${this.userName}**!`);
-                            setTimeout(() => this._addMessage('lucas', `Me diz, qual seu maior receio sobre começar hoje? Pode ser sincero(a), aqui a gente joga limpo.`), 1000);
+                            this.typing = true;
+                            setTimeout(() => {
+                                this.typing = false;
+                                this._addMessage('lucas', 'Antes de tirarmos suas dúvidas, me passa seu melhor e-mail? É por lá que enviamos os materiais e a garantia do método. 📧');
+                            }, 1000);
                         }, 800);
                         return;
                     }
 
-                    // Lógica de chamada da API (mantida)
-                    if (typeof window.callGeminiAPI === 'function') {
-                        // Prepara o histórico (mantida)
-                        const history = this.messages
-                            .slice(0, -1)
-                            .filter(msg => msg.text && msg.text.trim() !== "")
-                            .map(msg => ({
-                                role: msg.sender === 'user' ? 'user' : 'model',
-                                parts: [{ text: msg.text }]
-                            }));
-                        
-                        // --- FIX PARA ERRO DA API (First content should be user) ---
-                        if (history.length > 0 && history[0].role === 'model') {
-                            history.unshift({ role: 'user', parts: [{ text: 'Olá! Tenho interesse.' }] });
+                    // 2. CAPTURA DE E-MAIL (VALIDAÇÃO + ENVIO)
+                    if (this.conversationState === 'awaiting_email') {
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        if (emailRegex.test(userMessage)) {
+                            this.userEmail = userMessage;
+                            this.conversationState = 'chatting';
+                            
+                            this._sendEmailToBackend(this.userEmail, this.userName);
+
+                            setTimeout(() => {
+                                this.typing = false;
+                                this._addMessage('lucas', 'Show! E-mail anotado. ✅');
+                                this.typing = true;
+                                setTimeout(() => {
+                                    this.typing = false;
+                                    this._addMessage('lucas', `Agora me diz, ${this.userName}, qual sua maior dúvida sobre o método ou sobre como começar hoje?`);
+                                }, 1000);
+                            }, 800);
+                        } else {
+                            setTimeout(() => {
+                                this.typing = false;
+                                this._addMessage('lucas', 'Ops, esse e-mail não parece certo. Pode digitar novamente? 🧐');
+                            }, 800);
                         }
-                        // -----------------------------------------------------------
+                        return;
+                    }
+
+                    // 3. FLUXO NORMAL IA
+                    if (typeof window.callGeminiAPI === 'function') {
+                        const history = this.messages.slice(0, -1).filter(msg => msg.text).map(msg => ({
+                            role: msg.sender === 'user' ? 'user' : 'model',
+                            parts: [{ text: msg.text }]
+                        }));
+                        if (history.length > 0 && history[0].role === 'model') history.unshift({ role: 'user', parts: [{ text: 'Oi!' }] });
 
                         try {
                             const response = await window.callGeminiAPI(this.systemContext, history, userMessage);
                             this._addMessage('lucas', response);
-                        } catch (error) {
-                            console.error("Erro na chamada:", error);
-                            this._addMessage('lucas', error.message || "Eita, minha conexão oscilou. Tenta de novo?");
-                        } finally {
-                            this.typing = false;
-                        }
-                    } else {
-                        console.error("Função window.callGeminiAPI não encontrada. O script module carregou?");
-                        this._addMessage('lucas', "Erro técnico: Módulo de IA não carregado. Recarregue a página.");
-                        this.typing = false;
+                        } catch (error) { this._addMessage('lucas', "Minha conexão oscilou. Tenta de novo?"); }
+                        finally { this.typing = false; }
                     }
                 },
 
                 _addMessage(sender, text) {
-                    // --- CORREÇÃO DE SEGURANÇA: EVITA BOTÃO DUPLICADO ---
                     const linkPagamento = "https://pay.kiwify.com.br/sUqnazH?afid=AmSCf2eb";
-                    
-                    // Verificação de segurança: se o texto estiver vazio ou null, sai da função
                     if (!text) return;
 
-                    if (text.includes(linkPagamento)) {
-                        // Verifica se o botão JÁ EXISTE no texto (evita duplicação se a função for chamada 2x)
-                        // A verificação busca por um trecho único do HTML do botão
-                        if (!text.includes('QUERO MINHA VAGA AGORA')) {
-                            
-                            const botao = `<div class="mt-4 mb-2"><a href="${linkPagamento}" target="_blank" class="block w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-transform transform hover:scale-105 no-underline text-center flex items-center justify-center space-x-2 animate-bounce"><span>✅</span> <span>QUERO MINHA VAGA AGORA</span></a><div class="text-[10px] text-center text-gray-400 mt-1">Site seguro & oficial</div></div>`;
-                            
-                            // Escapa o link para usar no Regex
-                            const escapedLink = linkPagamento.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                            // Regex com flag 'g' para remover TODAS as ocorrências do link no texto
-                            const regexLink = new RegExp(escapedLink, 'g');
-                            
-                            // 1. Limpa o link do texto original (substitui por string vazia)
-                            text = text.replace(regexLink, '').trim();
-                            
-                            // 2. Adiciona o botão APENAS UMA VEZ no final
-                            text += `<br>${botao}`;
-                        }
+                    if (text.includes(linkPagamento) && !text.includes('QUERO MINHA VAGA AGORA')) {
+                        const botao = `<div class="mt-4 mb-2"><a href="${linkPagamento}" target="_blank" class="block w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-transform transform hover:scale-105 no-underline text-center flex items-center justify-center space-x-2 animate-bounce"><span>✅</span> <span>QUERO MINHA VAGA AGORA</span></a><div class="text-[10px] text-center text-gray-400 mt-1">Site seguro & oficial</div></div>`;
+                        const escapedLink = linkPagamento.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                        text = text.replace(new RegExp(escapedLink, 'g'), '').trim() + `<br>${botao}`;
                     }
-                    // -------------------------------------------------------------
 
-                    // Formatação básica de Markdown para HTML
-                    if (text) {
-                        text = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-                        text = text.replace(/\n/g, '<br>');
-                    }
-                    
+                    text = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
                     const messageId = `msg-${Date.now()}`;
                     this.messages.push({ sender, text, id: messageId });
                     
-                    // CORREÇÃO: Lógica de rolagem inteligente para focar no início da resposta do Lucas
                     Alpine.nextTick(() => {
                         this.chatContainer = document.querySelector('[x-ref="chatContainer"]');
                         if (this.chatContainer) {
-                            if (sender === 'user') {
-                                // MENSAGEM DO USUÁRIO: Rola para o final (sempre)
-                                this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
-                            } else {
-                                // MENSAGEM DO LUCAS (ASSISTENTE): Rola para o topo da mensagem
-                                const lastMessageElement = document.getElementById(messageId);
-                                if (lastMessageElement) {
-                                    // Adiciona um pequeno scroll-margin (10px) para aparecer logo abaixo do header
-                                    this.chatContainer.scrollTop = lastMessageElement.offsetTop - 10;
-                                } else {
-                                     // Fallback para rolar para o final se o elemento não for encontrado (nunca deve acontecer)
-                                     this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
-                                }
+                            if (sender === 'user') this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+                            else {
+                                const lastMsg = document.getElementById(messageId);
+                                if (lastMsg) this.chatContainer.scrollTop = lastMsg.offsetTop - 10;
                             }
                         }
                     });
@@ -477,89 +442,86 @@
         .chatbot-glow { box-shadow: 0 0 15px rgba(74, 222, 128, 0.5); border: 1px solid #4ade80; animation: border-pulse 2s infinite; }
         @keyframes border-pulse { 0% { border-color: #4ade80; box-shadow: 0 0 10px rgba(74, 222, 128, 0.4); } 50% { border-color: #22c55e; box-shadow: 0 0 20px rgba(74, 222, 128, 0.7); } 100% { border-color: #4ade80; box-shadow: 0 0 10px rgba(74, 222, 128, 0.4); } }
 
-        /* ESTILOS ESPECÍFICOS PARA O CHATBOT (Aparência WhatsApp - Dark Mode) */
+        /* ==========================================================================
+           WHATSAPP MODERN DARK MODE STYLES
+           ==========================================================================
+        */
         
-        /* Contêiner Principal - Fundo e Borda */
+        :root {
+            --wa-dark-bg: #0b141a;
+            --wa-header-bg: #202c33;
+            --wa-outgoing-bg: #005c4b;
+            --wa-incoming-bg: #202c33;
+            --wa-text-primary: #e9edef;
+            --wa-text-secondary: #8696a0;
+        }
+
         .wa-chat-container {
-            background-color: #0b141a; /* Fundo do app */
-            border: 2px solid #005c4b; /* Borda verde */
+            background-color: var(--wa-dark-bg);
+            border: 1px solid #37404a;
+            font-family: 'Inter', Helvetica, Arial, sans-serif;
         }
 
-        /* Fundo das Mensagens (Padrão WhatsApp Doodles Simulado) */
+        /* Fundo Doodle Pattern */
         .wa-chat-messages {
-            background-color: #0c1218; /* Cor do fundo do chat */
-            /* Se for usar uma imagem de fundo real, descomente abaixo */
-            /* background-image: url('data:image/svg+xml,...'); */ 
+            background-color: var(--wa-dark-bg);
+            background-image: radial-gradient(#2a3942 1px, transparent 1px);
+            background-size: 20px 20px;
         }
 
-        /* Cabeçalho do Chat (Cor da Barra Superior do WA) */
         .wa-chat-header {
-            background-color: #202c33; 
+            background-color: var(--wa-header-bg);
+            color: var(--wa-text-primary);
         }
 
-        /* Balão do Lucas (Receptor) - Cor e Triângulo */
-        .wa-message-lucas {
-            background-color: #202c33; /* Balão de mensagem do bot */
-            color: #e9edef; /* Cor do texto */
-            border-radius: 0.46875rem; /* 7.5px */
-            position: relative;
-        }
-        /* "Bico" do balão do Lucas */
-        .wa-message-lucas::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -8px; /* Ajuste para o "bico" se sobrepor ao balão */
-            width: 16px;
-            height: 16px;
-            background-color: #202c33;
-            clip-path: polygon(100% 0, 0% 100%, 100% 100%);
-            transform: rotate(90deg); /* Rotação para a esquerda */
-        }
-
-        /* Balão do Usuário (Emissor) - Cor e Triângulo */
-        .wa-message-user {
-            background-color: #005c4b; /* Cor do balão de envio */
-            color: #e9edef;
-            border-radius: 0.46875rem;
-            position: relative;
-        }
-        /* "Bico" do balão do Usuário */
-        .wa-message-user::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: -8px; /* Ajuste para o "bico" se sobrepor ao balão */
-            width: 16px;
-            height: 16px;
-            background-color: #005c4b;
-            clip-path: polygon(0 0, 100% 100%, 0 100%);
-            transform: rotate(90deg); /* Rotação para a direita */
-        }
-
-        /* Cor dos tiques de leitura (Azul WhatsApp) */
-        .wa-check-blue {
-            color: #53bdeb; /* Azul do WhatsApp */
-        }
+        /* BALÕES DE MENSAGEM (Estilização Avançada para Classes do Usuário) */
         
-        .module-card {
-            background: linear-gradient(145deg, #1f2937, #111827);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        /* Lucas (Recebido) */
+        .wa-message-lucas {
+            background-color: var(--wa-incoming-bg);
+            color: var(--wa-text-primary);
+            border-radius: 0 12px 12px 12px; /* Canto superior esquerdo quadrado */
+            position: relative;
+            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
         }
-        .module-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+        /* Cauda Lucas */
+        .wa-message-lucas::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -8px;
+            width: 8px;
+            height: 13px;
+            background: linear-gradient(to bottom right, transparent 50%, var(--wa-incoming-bg) 50%);
         }
-        .module-icon-bg-yellow {
-             background: linear-gradient(135deg, #f59e0b, #eab308);
-             box-shadow: 0 4px 15px rgba(250, 204, 21, 0.4);
-        }
-        .module-icon-bg-green {
-             background: linear-gradient(135deg, #10b981, #059669);
-             box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
-        }
-    </style>
 
+        /* Usuário (Enviado) */
+        .wa-message-user {
+            background-color: var(--wa-outgoing-bg);
+            color: var(--wa-text-primary);
+            border-radius: 12px 0 12px 12px; /* Canto superior direito quadrado */
+            position: relative;
+            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+        }
+        /* Cauda Usuário */
+        .wa-message-user::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            right: -8px;
+            width: 8px;
+            height: 13px;
+            background: linear-gradient(to bottom left, transparent 50%, var(--wa-outgoing-bg) 50%);
+        }
+
+        .wa-check-blue { color: #53bdeb; }
+        
+        /* Typing dots animation */
+        .typing-dot { animation: typing-blink 1.4s infinite both; }
+        .typing-dot:nth-child(2) { animation-delay: .2s; }
+        .typing-dot:nth-child(3) { animation-delay: .4s; }
+        @keyframes typing-blink { 0% { opacity: .2; } 20% { opacity: 1; } 100% { opacity: .2; } }
+    </style>
     </script>
     
     <!-- SCHEMA.ORG OTIMIZADO PARA IA (AEO) - EXPANDIDO -->
@@ -1610,24 +1572,28 @@
     </footer>
 
     <!-- Botão Fixo Mobile (Aparece após 15 segundos) -->
-<div 
-    id="sticky-cta" 
-    x-data="{ showSticky: false }" 
-    x-init="setTimeout(() => showSticky = true, 15000)" 
-    x-show="showSticky" 
-    x-cloak
-    x-transition:enter="transition ease-out duration-500"
-    x-transition:enter-start="translate-y-full opacity-0"
-    x-transition:enter-end="translate-y-0 opacity-100"
-    class="sticky-mobile-cta fixed bottom-0 left-0 w-full bg-slate-900 border-t border-yellow-500 p-4 z-50 flex items-center justify-between shadow-[0_-5px_20px_rgba(0,0,0,0.5)] md:w-auto md:left-1/2 md:-translate-x-1/2 md:bottom-4 md:rounded-2xl md:border-2 md:shadow-2xl md:bg-slate-900/95 md:backdrop-blur-sm"
->
-    <div class="md:mr-6">
-        <p class="text-xs text-white">Oferta Exclusiva</p>
-        <p class="font-bold text-yellow-400 text-lg">12x de R$ 10,03</p>
+    <div 
+        id="sticky-cta" 
+        x-data="{ showSticky: false }" 
+        x-init="setTimeout(() => showSticky = true, 35000)" 
+        x-show="showSticky" 
+        x-cloak
+        x-transition:enter="transition ease-out duration-500"
+        x-transition:enter-start="translate-y-full opacity-0"
+        x-transition:enter-end="translate-y-0 opacity-100"
+        class="sticky-mobile-cta fixed bottom-0 left-0 w-full bg-slate-900 border-t border-yellow-500 p-4 z-50 flex items-center justify-between shadow-[0_-5px_20px_rgba(0,0,0,0.5)] md:w-auto md:left-1/2 md:-translate-x-1/2 md:bottom-4 md:rounded-2xl md:border-2 md:shadow-2xl md:bg-slate-900/95 md:backdrop-blur-sm"
+    >
+        <div class="md:mr-6">
+            <p class="text-xs text-white">Oferta Exclusiva</p>
+            <p class="font-bold text-yellow-400 text-lg">12x de R$ 10,03</p>
+        </div>
+        <a href="#oferta" class="bg-green-500 text-white font-bold py-2 px-6 rounded-lg uppercase text-sm animate-pulse hover:bg-green-600 transition-colors">Quero Agora</a>
     </div>
-    <a href="#oferta" class="bg-green-500 text-white font-bold py-2 px-6 rounded-lg uppercase text-sm animate-pulse hover:bg-green-600 transition-colors">Quero Agora</a>
-</div>
-
+    <!-- 
+    ============================================================================
+    MODAL E LÓGICA DO CHATBOT (ESTILO WHATSAPP MODERNO - CÓDIGO DO USUÁRIO)
+    ============================================================================
+    -->
     <!-- MODAL E LÓGICA DO CHATBOT (Agora com estilo WhatsApp) - [Mantido] -->
     <div x-show="$store.chatbot.chatOpen"
         x-transition:enter="transition ease-out duration-300"
@@ -1641,15 +1607,15 @@
         style="display: none;">
 
         <div @click.away="$store.chatbot.closeChat()"
-              x-show="$store.chatbot.chatOpen"
-              x-transition:enter="transition ease-out duration-300"
-              x-transition:enter-start="opacity-0 translate-y-full sm:translate-y-10"
-              x-transition:enter-end="opacity-100 translate-y-0"
-              x-transition:leave="transition ease-in duration-200"
-              x-transition:leave-start="opacity-100 translate-y-0"
-              x-transition:leave-end="opacity-0 translate-y-full sm:translate-y-10"
-              class="wa-chat-container w-full max-w-md h-[90vh] max-h-[650px] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col">
-              
+             x-show="$store.chatbot.chatOpen"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 translate-y-full sm:translate-y-10"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 translate-y-full sm:translate-y-10"
+             class="wa-chat-container w-full max-w-md h-[90vh] max-h-[650px] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col">
+             
             <!-- CABEÇALHO (Estilo WA) -->
             <div class="wa-chat-header flex-shrink-0 p-4 flex justify-between items-center rounded-t-2xl sm:rounded-t-xl border-b border-slate-700 relative z-20">
                 <div x-show="!$store.chatbot.searchActive" x-transition.opacity class="flex items-center gap-3">
@@ -1706,7 +1672,10 @@
                 </div>
                 <form @submit.prevent="$store.chatbot.sendUserMessage()" class="flex items-center gap-2">
                     <!-- Input de Mensagem -->
-                    <input x-model="$store.chatbot.userInput" type="text" :placeholder="$store.chatbot.conversationState === 'awaiting_name' ? 'Digite seu nome...' : 'Me manda sua dúvida aqui...'" :disabled="$store.chatbot.typing" class="w-full bg-[#202c33] border-none rounded-full py-2 px-4 text-white placeholder-slate-500 focus:outline-none focus:ring-0 transition disabled:opacity-50 shadow-inner">
+                    <!-- Placeholder Dinâmico -->
+                    <input x-model="$store.chatbot.userInput" type="text" 
+                           :placeholder="$store.chatbot.conversationState === 'awaiting_name' ? 'Digite seu nome...' : ($store.chatbot.conversationState === 'awaiting_email' ? 'Digite seu melhor e-mail...' : 'Me manda sua dúvida aqui...')" 
+                           :disabled="$store.chatbot.typing" class="w-full bg-[#202c33] border-none rounded-full py-2 px-4 text-white placeholder-slate-500 focus:outline-none focus:ring-0 transition disabled:opacity-50 shadow-inner">
                     
                     <!-- Botão de Envio (Estilo WA) -->
                     <button type="submit" :disabled="$store.chatbot.typing || $store.chatbot.userInput.trim() === ''" class="bg-green-600 text-white p-3 rounded-full hover:bg-green-700 transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed">
@@ -1716,7 +1685,6 @@
             </div>
         </div>
     </div>
-
     <!-- Notificações (Mantidas) -->
     <div id="social-proof-container" class="fixed bottom-44 left-4 right-4 z-30 space-y-3 sm:bottom-32 sm:left-5 sm:right-auto sm:w-auto"></div>
     <div id="viewers-notification" class="fixed bottom-5 right-5 z-40 hidden md:block"></div>
@@ -1851,7 +1819,7 @@
         setTimeout(() => { if (!chatOpen) { showProof(); socialProofIntervalId = setInterval(showProof, 15000); } }, 8000);
         
         --*/
-        chatbotPromptTimeoutId = setTimeout(window.showChatbotPrompt, 12000);
+        chatbotPromptTimeoutId = setTimeout(window.showChatbotPrompt, 25000);
 
         
 
@@ -1917,7 +1885,7 @@
         window.startNotificationCycles();
 
         // LÓGICA DE RASTREAMENTO - [Mantida]
-       const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFkVks_70iwVVyU-EWYaP3pbiSD9uij6L__PhK8L0FaSZVDsjU21yf7SocPhG0UpR7/exec';
+       const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwGLtLt4bBE7RsyKjkThSP_yY_jzRxVs1fLIsmN6WPrkVKjvjdtZqWsb_KkPeEOYIof/exec';
         
         function enviarNotificacao(type, data) {
             const payload = JSON.stringify({ type, data });
