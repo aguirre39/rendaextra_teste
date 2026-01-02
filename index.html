@@ -1105,8 +1105,8 @@
          <!-- SEÇÃO "O QUE VOCÊ VAI RECEBER" -->
         <section class="mb-16 reveal-animation">
             <div class="bg-slate-900/50 border-2 border-dashed border-yellow-500 p-6 md:p-8 rounded-xl">
-                <h2 class="text-3xl md:text-4xl font-black text-center mb-2 text-yellow-400">O Passo a Passo Completo</h2>
-                <p class="text-center text-lg text-slate-300 mb-10">Tudo o que você precisa para começar:</p>
+                <h2 class="text-3xl md:text-4xl font-black text-center mb-2 text-yellow-400">O Passo a Passo Completo do **Curso de Profissões Digitais**</h2>
+                <p class="text-center text-lg text-slate-300 mb-10">Os módulos que garantem o seu **trabalho digital em casa**, mesmo começando do zero:</p>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-center">
                     <!-- Módulo 1 -->
@@ -1674,9 +1674,8 @@
 
    <script>
         // ⚠️⚠️⚠️ ATENÇÃO: COLE A URL DO SEU GOOGLE APPS SCRIPT AQUI ABAIXO ⚠️⚠️⚠️
-        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzlI2_xkmdT6rRR2_5D-h-54AsRu4JIJ98ZnOPS7I2Cb5imxPjytk90jXzOz9c6uN1w/exec"; 
-        // Exemplo: "https://script.google.com/macros/s/AKfycb.../exec"
-
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzEA1yaeI_rFRFmaAnWljcTPRkWctY3No2ikFf0DWbiFPPquHHAgetGkHJ1oyJzbPrAGQ/exec"; 
+        
         // Função global que substitui a chamada direta ao Gemini SDK
         window.callGeminiAPI = async (systemInstruction, history, userMessage) => {
              // Validação básica para evitar erro se o usuário esquecer de configurar
@@ -1866,8 +1865,9 @@
         
         window.startNotificationCycles();
 
+       
         // LÓGICA DE RASTREAMENTO - [Mantida]
-       const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwGLtLt4bBE7RsyKjkThSP_yY_jzRxVs1fLIsmN6WPrkVKjvjdtZqWsb_KkPeEOYIof/exec';
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFkVks_70iwVVyU-EWYaP3pbiSD9uij6L__PhK8L0FaSZVDsjU21yf7SocPhG0UpR7/exec';
         
         function enviarNotificacao(type, data) {
             const payload = JSON.stringify({ type, data });
